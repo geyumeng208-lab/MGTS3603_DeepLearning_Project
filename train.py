@@ -54,6 +54,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--synthetic_samples", type=int, default=None)
     parser.add_argument("--pos_weight", type=float, default=None)
     parser.add_argument("--session_gap_minutes", type=float, default=None)
+    parser.add_argument(
+        "--hyformer_encoder_type",
+        type=str,
+        choices=["longer", "full_transformer", "swiglu"],
+        default=None,
+    )
     parser.add_argument("--device", type=str, default=None)
     return parser.parse_args()
 
@@ -72,6 +78,7 @@ def load_config(args: argparse.Namespace) -> Config:
         "synthetic_samples",
         "pos_weight",
         "session_gap_minutes",
+        "hyformer_encoder_type",
         "device",
     ]:
         value = getattr(args, key)

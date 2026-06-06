@@ -22,6 +22,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--models", nargs="+", default=["twin", "hyformer_static", "hyformer_hier"])
     parser.add_argument("--batch_sizes", nargs="+", type=int, default=[1, 32])
     parser.add_argument("--seq_lens", nargs="+", type=int, default=[100, 500])
+    parser.add_argument(
+        "--encoder_types",
+        nargs="+",
+        default=[None],
+        help="Optional HyFormer sequence encoders: longer, full_transformer, swiglu.",
+    )
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--iters", type=int, default=20)
     parser.add_argument("--device", type=str, default="cpu")
@@ -65,6 +71,7 @@ def benchmark_one(
     model_name: str,
     batch_size: int,
     seq_len: int,
+    encoder_type: str | None,
     warmup: int,
     iters: int,
     device: torch.device,
@@ -87,6 +94,8 @@ def benchmark_one(
         recent_seq_len=min(100, seq_len),
         long_num_chunks=8,
     )
+    if encoder_type is not None and encoder_type.lower() != "none":
+        cfg.hyformer_encoder_type = encoder_type
     field_dims = FieldDims(num_users=1_100_000, num_items=500_000, num_categories=20_000)
     model = build_model(cfg, field_dims).to(device)
     model.eval()
@@ -108,6 +117,7 @@ def benchmark_one(
 
     return {
         "model": model_name,
+        "encoder_type": cfg.hyformer_encoder_type,
         "batch_size": batch_size,
         "seq_len": seq_len,
         "mean_ms": float(np.mean(timings)),
@@ -121,18 +131,22 @@ def main() -> None:
     args = parse_args()
     set_seed(args.seed)
     device = torch.device(args.device)
-    print("| model | batch_size | seq_len | mean_ms | p50_ms | p95_ms | per_sample_ms |")
-    print("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+    print("| model | encoder_type | batch_size | seq_len | mean_ms | p50_ms | p95_ms | per_sample_ms |")
+    print("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
     for model_name in args.models:
-        for batch_size in args.batch_sizes:
-            for seq_len in args.seq_lens:
-                row = benchmark_one(model_name, batch_size, seq_len, args.warmup, args.iters, device)
-                print(
-                    f"| {row['model']} | {row['batch_size']} | {row['seq_len']} | "
-                    f"{row['mean_ms']:.2f} | {row['p50_ms']:.2f} | {row['p95_ms']:.2f} | "
-                    f"{row['per_sample_ms']:.2f} |",
-                    flush=True,
-                )
+        encoder_types = args.encoder_types
+        if not model_name.startswith("hyformer"):
+            encoder_types = [None]
+        for encoder_type in encoder_types:
+            for batch_size in args.batch_sizes:
+                for seq_len in args.seq_lens:
+                    row = benchmark_one(model_name, batch_size, seq_len, encoder_type, args.warmup, args.iters, device)
+                    print(
+                        f"| {row['model']} | {row['encoder_type']} | {row['batch_size']} | {row['seq_len']} | "
+                        f"{row['mean_ms']:.2f} | {row['p50_ms']:.2f} | {row['p95_ms']:.2f} | "
+                        f"{row['per_sample_ms']:.2f} |",
+                        flush=True,
+                    )
 
 
 if __name__ == "__main__":

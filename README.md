@@ -226,6 +226,36 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 
 严格消融说明，电商购买预测不仅依赖“用户看过什么”，还依赖“什么时候看”“以什么行为方式看”“是否属于当前 session”以及“用户和商品本身有什么属性”。其中 session 级建模带来最大的结构性提升，说明课程要求中强调的当前 session 实时行为非常关键。静态特征进一步提升 AUC 和 GAUC，说明用户画像和商品侧先验可以有效补充序列表示。
 
+### Sequence Representation Encoding 对比
+
+本项目当前默认采用 `hyformer_encoder_type=longer`，即 LONGER-style Efficient Encoding。它先将完整历史序列压缩成短序列 `S_short`，再用短序列对完整历史做 cross-attention：
+
+```text
+H_l = CrossAttn(S_short, S, S)
+```
+
+代码中三种 sequence representation encoder 都已支持，可通过 `--hyformer_encoder_type` 切换：
+
+- `full_transformer`：标准 Transformer self-attention 直接编码完整历史，表达能力最强，但长序列计算成本最高。
+- `longer`：短序列 cross-attention 编码完整历史，是效果和时延之间的折中方案，也是当前默认设置。
+- `swiglu`：只用前馈 SwiGLU 做 token-wise 表示变换，不做 attention，上下文建模最弱但单样本时延最低。
+
+为了保证对比公平，下面实验固定为 `HyFormer-Static`、同一份 `purchase_sequence_100k_static.csv`、用户级切分、`max_seq_len=100`、训练 1 epoch，仅替换 sequence representation encoder。
+
+```bash
+python train.py --model hyformer_static --data_path data/purchase_sequence_100k_static.csv --epochs 1 --batch_size 128 --max_seq_len 100 --hyformer_encoder_type longer --device cpu
+python train.py --model hyformer_static --data_path data/purchase_sequence_100k_static.csv --epochs 1 --batch_size 128 --max_seq_len 100 --hyformer_encoder_type full_transformer --device cpu
+python train.py --model hyformer_static --data_path data/purchase_sequence_100k_static.csv --epochs 1 --batch_size 128 --max_seq_len 100 --hyformer_encoder_type swiglu --device cpu
+```
+
+| Encoder | 公式形式 | AUC | GAUC | 结论 |
+| --- | --- | ---: | ---: | --- |
+| `longer` | `CrossAttn(S_short, S, S)` | 0.7966 | 0.7017 | 默认方案，GAUC 最优，适合长序列折中 |
+| `full_transformer` | `TransformerEnc(S)` | 0.7987 | 0.7010 | AUC 略高，但长序列 batch 时延明显更高 |
+| `swiglu` | `SwiGLU(S)` | 0.7954 | 0.6822 | 速度快，但用户内排序能力下降 |
+
+结果说明，Full Transformer 并没有在本任务中带来足够大的 GAUC 增益，反而在长序列批量推理时显著增加成本；SwiGLU 虽然便宜，但缺少显式上下文交互，GAUC 明显下降。因此最终继续采用 `longer` 作为 HyFormer 系列默认 Sequence Representation Encoding。
+
 ### 扩展实验
 
 扩展实验不作为严格单变量消融，而是用于探索更接近真实业务的设置，包括更难负样本和更长历史序列。
@@ -260,6 +290,27 @@ python scripts/benchmark_latency.py --models twin hyformer_static hyformer_hier 
 | hyformer_hier | 1 | 500 | 14.02 | 14.02 | 14.62 | 14.02 |
 | hyformer_hier | 32 | 100 | 26.50 | 26.24 | 28.49 | 0.83 |
 | hyformer_hier | 32 | 500 | 35.20 | 35.20 | 36.70 | 1.10 |
+
+进一步固定 `hyformer_static`，只比较三种 sequence representation encoder 的 CPU forward 时延：
+
+```bash
+python scripts/benchmark_latency.py --models hyformer_static --encoder_types longer full_transformer swiglu --batch_sizes 1 32 --seq_lens 100 500 --warmup 3 --iters 10 --device cpu
+```
+
+| model | encoder_type | batch_size | seq_len | mean_ms | p50_ms | p95_ms | per_sample_ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| hyformer_static | longer | 1 | 100 | 8.71 | 8.54 | 9.29 | 8.71 |
+| hyformer_static | longer | 1 | 500 | 12.85 | 11.47 | 20.36 | 12.85 |
+| hyformer_static | longer | 32 | 100 | 23.84 | 23.73 | 24.55 | 0.74 |
+| hyformer_static | longer | 32 | 500 | 36.01 | 36.24 | 38.01 | 1.13 |
+| hyformer_static | full_transformer | 1 | 100 | 10.04 | 9.87 | 11.24 | 10.04 |
+| hyformer_static | full_transformer | 1 | 500 | 13.44 | 13.43 | 14.08 | 13.44 |
+| hyformer_static | full_transformer | 32 | 100 | 25.19 | 25.29 | 26.91 | 0.79 |
+| hyformer_static | full_transformer | 32 | 500 | 67.04 | 67.16 | 69.93 | 2.09 |
+| hyformer_static | swiglu | 1 | 100 | 6.05 | 6.10 | 6.61 | 6.05 |
+| hyformer_static | swiglu | 1 | 500 | 6.67 | 6.73 | 6.94 | 6.67 |
+| hyformer_static | swiglu | 32 | 100 | 21.05 | 21.43 | 23.09 | 0.66 |
+| hyformer_static | swiglu | 32 | 500 | 37.18 | 36.94 | 39.27 | 1.16 |
 
 时延实验说明，TWIN 的 Top-K 检索式结构明显更轻，适合低时延在线粗排或实时 CTR 服务；HyFormer-Static 和 HyFormer-Hierarchical 表达能力更强，但前向计算更重。HyFormer-Hierarchical 在 `seq_len=500` 下仍保持可控，是因为更早历史被压缩为 chunk 表示，但它仍不应无条件替代轻量在线模型。动态序列长度和 Top-K 筛选如果仅在 dense tensor 上改 mask，并不能真正减少计算；工业落地需要在进入模型前完成 sparse gather、ANN/Top-K 预筛、离线 chunk 缓存或长期兴趣向量预计算，才能把理论上的 token 减少转化为真实时延收益。
 
