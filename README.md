@@ -1,19 +1,26 @@
-# 基于淘宝广告数据集的超长用户行为序列建模
+# 基于淘宝用户行为数据的购买预测序列建模
 
 ## 项目描述
 
-在淘宝广告数据集中，74% 用户点击序列长度超过 50，24% 超过 500。为了释放数据潜力，让模型充分利用长期行为序列来挖掘用户的长期兴趣，我们进行了长序列建模。
+本项目聚焦电商场景中的用户行为序列建模问题：根据用户当前 session 及历史行为序列，预测用户是否会发生购买行为，并输出购买概率。在真实电商平台中，用户会产生浏览、收藏、加购、购买等多种行为，不同行为类型、行为时间间隔、当前 session 短期兴趣和长期历史兴趣都会影响最终转化。
 
-- 首先采用基于 SIM Hard Search 的经典两阶段范式：GSU 阶段按候选广告类目从用户近 1000 条行为中硬筛选同类目序列，ESU 阶段通过 Target Attention 建模兴趣，GAUC +0.41pt。
-- 为了解决 SIM 的两阶段目标不一致的问题，我们采用 ETA 的方式进行建模，采用 SimHash 将候选 item 和长序列向量转化为二进制指纹，以汉明距离高效检索 Top-K 相似行为，实现端到端训练，保持了 GSU 和 ESU 的一致性。相比 base，GAUC +0.69pt。
-- 为了解决 SIM 和 ETA 的 GSU 和 ESU 计算逻辑不一致的问题，我们采用 TWIN 的方式进行建模，统一了 GSU 检索与 ESU 注意力的相似度计算逻辑，提高了两阶段一致性，并通过预计算和特征压缩的方式降低了计算复杂度。相比 base，GAUC +0.82pt。
+项目以 LSTM 作为序列建模基线，并尝试 SIM、ETA、TWIN 等长序列检索/注意力模型作为对比。在此基础上，最终选择 HyFormer 系列模型作为主方案，因为 HyFormer 的多序列结构更适合融合电商场景中的异构信息，例如：
 
-本项目根据上述思路实现了三类长序列点击率预估模型，用于模拟淘宝广告场景中“用户历史行为很长、候选广告需要从历史中检索相关兴趣”的问题。
+- 当前 session 短期行为序列
+- 长期历史行为序列
+- brand / cate 异构序列
+- `pv`、`fav`、`cart`、`buy` 等行为类型
+- 时间间隔与近期行为衰减
+- 用户画像和商品侧静态特征
 
-- `base` / `LSTM`：将用户历史行为序列输入 LSTM，取最后有效隐状态作为长期兴趣表示，是 SIM、ETA、TWIN 的基线模型。
+最终最优模型为 `HyFormer-Hierarchical`，它在 HyFormer-Session 和 HyFormer-Static 的基础上进一步引入长序列分层压缩：当前 session 保留细粒度行为，最近历史保留最近 100 条行为，更早历史通过 chunk pooling 压缩为长期兴趣序列。在 10 万条购买预测样本上，最终达到 AUC 0.8058、GAUC 0.7126。
+
+本项目实现的主要模型包括：
+
+- `base` / `LSTM`：将用户历史行为序列输入 LSTM，取最后有效隐状态作为长期兴趣表示。
 - `SIM`：类别硬筛 GSU + Target Attention ESU。
 - `ETA`：SimHash 二进制指纹 + 汉明距离 Top-K 检索 + Target Attention。
-- `TWIN`：参考 TWIN 论文的 CP-GSU 思路，使用共享多头 Target Attention 分数完成 GSU Top-K 检索和 ESU 兴趣聚合，并加入压缩 cross feature bias。
+- `TWIN`：作为对比实验，参考 TWIN 论文的 CP-GSU 思路，使用共享多头 Target Attention 分数完成 GSU Top-K 检索和 ESU 兴趣聚合，并加入压缩 cross feature bias。
 - `HyFormer`：基于 [WestbrookLong/Hyformer_Pytorch](https://github.com/WestbrookLong/Hyformer_Pytorch) 的 HyFormerBackbone，使用序列编码器、query tokens、non-sequence tokens 和 QueryBoostMixer 建模用户行为序列。
 - `HyFormer-Opt`：固定 HyFormerBackbone 不变，将历史 brand 序列和 cate 序列拆成两条异构序列，并增强 non-sequence context，用于当前购买预测任务。
 - `HyFormer-Time`：在 HyFormer-Opt 基础上加入历史行为到预测时刻的时间间隔、相邻行为间隔、时间桶 embedding 和时间衰减 gate。
@@ -28,6 +35,45 @@
 1. 使用 `--data_path` 指向淘宝广告风格 CSV。
 2. 不传数据路径时自动生成合成数据，便于快速跑通训练和测试。
 
+## 数据挂载
+
+由于原始淘宝数据和预处理后的训练 CSV 文件较大，仓库不会直接上传数据文件。`.gitignore` 已排除以下路径：
+
+```text
+data/
+src/*.csv
+src/sampled_10pct/
+external/
+```
+
+clone 仓库后，需要手动将数据放回本地目录。推荐目录结构如下：
+
+```text
+Project_DeepLearning/
+├── src/
+│   └── sampled_10pct/
+│       ├── raw_sample.csv
+│       ├── ad_feature.csv
+│       ├── user_profile.csv
+│       └── behavior_log.csv
+└── data/
+    ├── purchase_sequence_100k_event.csv
+    ├── purchase_sequence_100k_static.csv
+    └── purchase_sequence_100k_static_long500.csv
+```
+
+如果只有四张原始抽样表，可以重新生成训练 CSV：
+
+```bash
+python scripts/build_purchase_sequence.py --behavior_log src/sampled_10pct/behavior_log.csv --user_profile src/sampled_10pct/user_profile.csv --ad_feature src/sampled_10pct/ad_feature.csv --output data/purchase_sequence_100k_static_long500.csv --max_samples 100000 --max_history 500 --min_history 5 --neg_sample_rate 0.02 --with_static_features
+```
+
+如果使用 Google Drive、OneDrive 或移动硬盘，可以把数据目录挂载/复制到上述位置；也可以通过 `--data_path` 指向任意位置的已预处理 CSV，例如：
+
+```bash
+python train.py --model hyformer_hier --data_path D:/datasets/purchase_sequence_100k_static_long500.csv --epochs 2 --batch_size 256 --max_seq_len 500
+```
+
 ## 环境
 
 ```bash
@@ -37,7 +83,7 @@ pip install -r requirements.txt
 ## 快速运行
 
 ```bash
-python train.py --model twin --epochs 3 --synthetic_samples 3000
+python train.py --model hyformer_hier --data_path data/purchase_sequence_100k_static_long500.csv --epochs 2 --batch_size 256 --max_seq_len 500
 ```
 
 也可以切换模型：
