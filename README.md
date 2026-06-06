@@ -78,6 +78,30 @@ python scripts/build_purchase_sequence.py --behavior_log data/sampled_10pct/beha
 python train.py --model hyformer_hier --data_path D:/datasets/purchase_sequence_100k_static_long500.csv --epochs 2 --batch_size 256 --max_seq_len 500
 ```
 
+项目也支持使用 DIGINETICA 做外部验证。请将 DIGINETICA 数据放在：
+
+```text
+data/dataset-train-diginetica/
+├── product-categories.csv
+├── products.csv
+├── train-clicks.csv
+├── train-item-views.csv
+├── train-purchases.csv
+└── train-queries.csv
+```
+
+然后生成统一格式的购买预测 CSV：
+
+```bash
+python scripts/build_diginetica_sequence.py --input_dir data/dataset-train-diginetica --output data/diginetica_sequence_100k.csv --max_samples 100000 --max_history 100 --min_history 2 --neg_per_pos 2
+```
+
+训练示例：
+
+```bash
+python train.py --model hyformer_session --data_path data/diginetica_sequence_100k.csv --epochs 1 --batch_size 512 --max_seq_len 100 --pos_weight 14.9
+```
+
 ## 环境
 
 ```bash
@@ -212,6 +236,18 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 | HyFormer-Hierarchical | `max_seq_len=500`，最近 100 条细粒度 + 更早历史 8 chunk 压缩 | 0.8058 | 0.7126 | 长序列扩展设置，最终最优 GAUC |
 
 Hard negative 实验改变了负样本分布，让模型区分“接近购买但尚未购买”和“真实购买”，更适合检验模型鲁棒性，但不能直接与原始负采样实验比较。长序列分层压缩实验将最大历史长度从 100 扩展到 500，并将更早历史压缩成 chunk 表示，说明长期历史对用户内排序有价值。
+
+### 外部数据集验证
+
+为了检验结论是否只依赖淘宝数据，本项目额外使用 DIGINETICA 构造 session 购买预测任务。DIGINETICA 的平均历史长度较短，因此更适合验证“当前 session 实时行为”和“商品侧静态特征”的作用，而不适合验证超长历史分层压缩。
+
+| 数据集 | 模型 | 设置 | AUC | GAUC | 说明 |
+| --- | --- | --- | ---: | ---: | --- |
+| DIGINETICA | HyFormer-Session | 1 epoch, pos_weight=14.9 | 0.8807 | 0.7263 | session 建模在外部数据上仍有效 |
+| DIGINETICA | HyFormer-Time | 1 epoch, pos_weight=14.9 | 0.8309 | 0.7641 | 时间特征对 session 内排序更有帮助 |
+| DIGINETICA | HyFormer-Static | 1 epoch, pos_weight=14.9 | 0.8871 | 0.7493 | 商品价格/类目等静态特征提升全局判断 |
+
+DIGINETICA 外部验证支持了本项目的核心观察：session 级实时行为是购买预测的重要信号；时间间隔更有助于排序指标 GAUC；商品侧静态特征能够补充行为序列，提高整体购买概率判断。由于 DIGINETICA 的 session 较短，长序列分层压缩不是该数据集上的重点。
 
 ### 最终模型选择说明
 
