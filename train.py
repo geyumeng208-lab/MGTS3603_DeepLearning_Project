@@ -43,6 +43,8 @@ def parse_args() -> argparse.Namespace:
             "hyformer_hierarchical",
             "hyformer_dynamic",
             "hyformer_dyn",
+            "hyformer_topk",
+            "hyformer_filter",
             "hyformer_offline_long",
             "hyformer_cached_long",
         ],

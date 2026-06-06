@@ -45,6 +45,7 @@ class ModelSmokeTest(unittest.TestCase):
             "hyformer_static",
             "hyformer_hier",
             "hyformer_dynamic",
+            "hyformer_topk",
             "hyformer_offline_long",
         ]:
             with self.subTest(model=name):
