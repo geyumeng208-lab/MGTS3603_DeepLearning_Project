@@ -46,6 +46,12 @@ src/sampled_10pct/
 external/
 ```
 
+数据可通过以下 SJTU 网盘链接获取：
+
+[data](https://pan.sjtu.edu.cn/web/share/bdc5e1ff4e2fd50a0a26d302e70ae5d0)
+
+下载后请将 `data` 文件夹放到项目根目录。如果下载内容中包含 `sampled_10pct`，请将其放到 `src/sampled_10pct/`；如果下载内容中包含已经预处理好的 `purchase_sequence_*.csv`，请放到项目根目录下的 `data/`。
+
 clone 仓库后，需要手动将数据放回本地目录。推荐目录结构如下：
 
 ```text
