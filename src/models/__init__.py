@@ -7,6 +7,7 @@ from src.models.hyformer_event import EventAwareHyFormerModel
 from src.models.hyformer_dynamic import DynamicHyFormerModel
 from src.models.hyformer_hierarchical import HierarchicalHyFormerModel
 from src.models.hyformer_multigrain import MultiGranularityHyFormerModel
+from src.models.hyformer_offline_long import OfflineLongTermHyFormerModel
 from src.models.hyformer_optimized import OptimizedHyFormerModel
 from src.models.hyformer_session import SessionAwareHyFormerModel
 from src.models.hyformer_static import StaticFeatureHyFormerModel
@@ -48,4 +49,6 @@ def build_model(cfg: Config, field_dims: FieldDims):
         return HierarchicalHyFormerModel(cfg, field_dims)
     if name in {"hyformer_dynamic", "hyformer_dyn"}:
         return DynamicHyFormerModel(cfg, field_dims)
+    if name in {"hyformer_offline_long", "hyformer_cached_long"}:
+        return OfflineLongTermHyFormerModel(cfg, field_dims)
     raise ValueError(f"未知模型: {cfg.model}")

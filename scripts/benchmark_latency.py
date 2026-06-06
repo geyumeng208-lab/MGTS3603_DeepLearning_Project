@@ -100,6 +100,8 @@ def benchmark_one(
     model = build_model(cfg, field_dims).to(device)
     model.eval()
     batch = make_batch(batch_size, seq_len, field_dims, device)
+    if model_name in {"hyformer_offline_long", "hyformer_cached_long"}:
+        batch["long_term_embedding"] = torch.randn(batch_size, cfg.embedding_dim, device=device)
 
     with torch.no_grad():
         for _ in range(warmup):
