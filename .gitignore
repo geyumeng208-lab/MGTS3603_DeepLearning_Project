@@ -13,7 +13,6 @@ checkpoints/
 # Large local datasets and generated training CSVs
 data/
 src/*.csv
-src/sampled_10pct/
 
 # Cloned reference repositories
 external/

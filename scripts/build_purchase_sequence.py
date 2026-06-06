@@ -23,9 +23,9 @@ BTAG_ID = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build purchase-prediction sequences from behavior_log.csv.")
-    parser.add_argument("--behavior_log", type=Path, default=Path("src/sampled_10pct/behavior_log.csv"))
-    parser.add_argument("--user_profile", type=Path, default=Path("src/sampled_10pct/user_profile.csv"))
-    parser.add_argument("--ad_feature", type=Path, default=Path("src/sampled_10pct/ad_feature.csv"))
+    parser.add_argument("--behavior_log", type=Path, default=Path("data/sampled_10pct/behavior_log.csv"))
+    parser.add_argument("--user_profile", type=Path, default=Path("data/sampled_10pct/user_profile.csv"))
+    parser.add_argument("--ad_feature", type=Path, default=Path("data/sampled_10pct/ad_feature.csv"))
     parser.add_argument("--output", type=Path, default=Path("data/purchase_sequence_100k.csv"))
     parser.add_argument("--max_samples", type=int, default=100000)
     parser.add_argument("--max_history", type=int, default=100)

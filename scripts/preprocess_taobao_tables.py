@@ -12,7 +12,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Convert Taobao four-table CTR data into the project's sequence CSV format."
     )
-    parser.add_argument("--input_dir", type=Path, default=Path("src/sampled_10pct"))
+    parser.add_argument("--input_dir", type=Path, default=Path("data/sampled_10pct"))
     parser.add_argument("--output", type=Path, default=Path("data/taobao_sequence_sample.csv"))
     parser.add_argument("--max_samples", type=int, default=20000)
     parser.add_argument("--max_history", type=int, default=200)

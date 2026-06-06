@@ -42,7 +42,6 @@
 ```text
 data/
 src/*.csv
-src/sampled_10pct/
 external/
 ```
 
@@ -50,19 +49,18 @@ external/
 
 [data](https://pan.sjtu.edu.cn/web/share/bdc5e1ff4e2fd50a0a26d302e70ae5d0)
 
-下载后请将 `data` 文件夹放到项目根目录。如果下载内容中包含 `sampled_10pct`，请将其放到 `src/sampled_10pct/`；如果下载内容中包含已经预处理好的 `purchase_sequence_*.csv`，请放到项目根目录下的 `data/`。
+下载后请将 `data` 文件夹放到项目根目录。所有数据文件统一放在 `data/` 下：四张抽样原始表放在 `data/sampled_10pct/`，预处理后的 `purchase_sequence_*.csv` 直接放在 `data/`。
 
 clone 仓库后，需要手动将数据放回本地目录。推荐目录结构如下：
 
 ```text
 Project_DeepLearning/
-├── src/
-│   └── sampled_10pct/
-│       ├── raw_sample.csv
-│       ├── ad_feature.csv
-│       ├── user_profile.csv
-│       └── behavior_log.csv
 └── data/
+    ├── sampled_10pct/
+    │   ├── raw_sample.csv
+    │   ├── ad_feature.csv
+    │   ├── user_profile.csv
+    │   └── behavior_log.csv
     ├── purchase_sequence_100k_event.csv
     ├── purchase_sequence_100k_static.csv
     └── purchase_sequence_100k_static_long500.csv
@@ -71,7 +69,7 @@ Project_DeepLearning/
 如果只有四张原始抽样表，可以重新生成训练 CSV：
 
 ```bash
-python scripts/build_purchase_sequence.py --behavior_log src/sampled_10pct/behavior_log.csv --user_profile src/sampled_10pct/user_profile.csv --ad_feature src/sampled_10pct/ad_feature.csv --output data/purchase_sequence_100k_static_long500.csv --max_samples 100000 --max_history 500 --min_history 5 --neg_sample_rate 0.02 --with_static_features
+python scripts/build_purchase_sequence.py --behavior_log data/sampled_10pct/behavior_log.csv --user_profile data/sampled_10pct/user_profile.csv --ad_feature data/sampled_10pct/ad_feature.csv --output data/purchase_sequence_100k_static_long500.csv --max_samples 100000 --max_history 500 --min_history 5 --neg_sample_rate 0.02 --with_static_features
 ```
 
 如果使用 Google Drive、OneDrive 或移动硬盘，可以把数据目录挂载/复制到上述位置；也可以通过 `--data_path` 指向任意位置的已预处理 CSV，例如：
