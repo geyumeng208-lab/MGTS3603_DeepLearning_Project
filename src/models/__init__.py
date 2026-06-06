@@ -4,6 +4,7 @@ from src.data import FieldDims
 from src.models.eta import ETAModel
 from src.models.hyformer import HyFormerModel
 from src.models.hyformer_event import EventAwareHyFormerModel
+from src.models.hyformer_dynamic import DynamicHyFormerModel
 from src.models.hyformer_hierarchical import HierarchicalHyFormerModel
 from src.models.hyformer_multigrain import MultiGranularityHyFormerModel
 from src.models.hyformer_optimized import OptimizedHyFormerModel
@@ -45,4 +46,6 @@ def build_model(cfg: Config, field_dims: FieldDims):
         return StaticFeatureHyFormerModel(cfg, field_dims)
     if name in {"hyformer_hier", "hyformer_hierarchical"}:
         return HierarchicalHyFormerModel(cfg, field_dims)
+    if name in {"hyformer_dynamic", "hyformer_dyn"}:
+        return DynamicHyFormerModel(cfg, field_dims)
     raise ValueError(f"未知模型: {cfg.model}")

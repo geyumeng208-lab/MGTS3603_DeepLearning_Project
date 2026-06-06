@@ -44,6 +44,7 @@ class ModelSmokeTest(unittest.TestCase):
             "hyformer_session",
             "hyformer_static",
             "hyformer_hier",
+            "hyformer_dynamic",
         ]:
             with self.subTest(model=name):
                 cfg = Config(

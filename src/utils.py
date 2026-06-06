@@ -47,6 +47,8 @@ class Config:
     static_feature_vocab_size: int = 64
     recent_seq_len: int = 100
     long_num_chunks: int = 8
+    dynamic_low_activity_len: int = 50
+    dynamic_recent_len: int = 100
 
     batch_size: int = 128
     epochs: int = 3

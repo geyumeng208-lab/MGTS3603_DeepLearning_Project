@@ -35,6 +35,8 @@ session_gap_minutes: 30.0
 static_feature_vocab_size: 64
 recent_seq_len: 100
 long_num_chunks: 8
+dynamic_low_activity_len: 50
+dynamic_recent_len: 100
 
 batch_size: 128
 epochs: 3
