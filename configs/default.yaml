@@ -1,0 +1,45 @@
+seed: 2026
+model: twin
+data_path:
+synthetic_samples: 3000
+valid_ratio: 0.2
+
+num_users: 2000
+num_items: 5000
+num_categories: 80
+max_seq_len: 1000
+min_seq_len: 20
+top_k: 50
+
+embedding_dim: 32
+lstm_hidden_dim: 32
+lstm_layers: 1
+hidden_dims: [128, 64]
+dropout: 0.15
+hash_bits: 64
+compressed_dim: 16
+twin_heads: 4
+twin_cross_features: 6
+hyformer_layers: 2
+hyformer_heads: 4
+hyformer_ff_dim: 128
+hyformer_kernel_size: 3
+hyformer_non_seq_tokens: 3
+hyformer_query_tokens: 1
+hyformer_encoder_type: longer
+hyformer_short_seq_len: 8
+time_num_bins: 12
+time_decay_hours: 24.0
+btag_num_types: 5
+session_gap_minutes: 30.0
+static_feature_vocab_size: 64
+recent_seq_len: 100
+long_num_chunks: 8
+
+batch_size: 128
+epochs: 3
+learning_rate: 0.001
+weight_decay: 0.000001
+pos_weight: 0.0
+num_workers: 0
+device: auto

@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+outputs/
+checkpoints/
+*.pt
+*.pth
+
+# Large local datasets and generated training CSVs
+data/
+src/*.csv
+src/sampled_10pct/
+
+# Cloned reference repositories
+external/
