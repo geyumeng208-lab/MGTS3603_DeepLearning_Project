@@ -13,7 +13,7 @@
 - 时间间隔与近期行为衰减
 - 用户画像和商品侧静态特征
 
-最终最优模型为 `HyFormer-Hierarchical`，它在 HyFormer-Session 和 HyFormer-Static 的基础上进一步引入长序列分层压缩：当前 session 保留细粒度行为，最近历史保留最近 100 条行为，更早历史通过 chunk pooling 压缩为长期兴趣序列。在 10 万条购买预测样本上，最终达到 AUC 0.8058、GAUC 0.7126。
+最终最优模型为 `HyFormer-Hierarchical`，它在 HyFormer-Session 和 HyFormer-Static 的基础上进一步引入长序列分层压缩：当前 session 保留细粒度行为，最近历史保留最近 100 条行为，更早历史通过 chunk pooling 压缩为长期兴趣序列。在用户级验证切分下，最终达到 AUC 0.7988、GAUC 0.7047。
 
 本项目实现的主要模型包括：
 
@@ -190,7 +190,7 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 
 ### 实验设置
 
-为了更贴合课程要求，本项目从 `behavior_log.csv` 中构造购买预测任务：使用用户当前行为之前的历史行为序列作为输入，将当前行为是否为 `buy` 作为标签。正样本为购买行为，负样本为浏览、收藏、加购等非购买行为的抽样结果。主要实验使用 10% 用户抽样数据，构造 100,000 条训练样本。
+为了更贴合课程要求，本项目从 `behavior_log.csv` 中构造购买预测任务：使用用户当前行为之前的历史行为序列作为输入，将当前行为是否为 `buy` 作为标签。正样本为购买行为，负样本为浏览、收藏、加购等非购买行为的抽样结果。主要实验使用 10% 用户抽样数据，构造 100,000 条训练样本。为了避免数据泄露，训练集和验证集按 `user_id` 分组切分；在 DIGINETICA 外部验证中，`user_id` 对应 session id，因此采用 session 级切分，避免同一 session 同时出现在训练和验证中。
 
 需要注意的是，下面实验分为三类：主模型对比、严格消融实验和扩展实验。主模型对比和严格消融实验尽量保持同一任务、同一数据构造、同一训练轮数；扩展实验会改变负样本分布或历史长度，因此不与严格消融结果做单变量比较。
 
@@ -222,7 +222,7 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 | HyFormer-MultiGranularity | 按 `pv/fav/cart/buy` 拆分多粒度序列 | 0.7620 | 0.6111 | 多序列行为类型建模优于简单 btag embedding |
 | HyFormer-Session, 30min | 当前 session + 长期历史双序列 | 0.7869 | 0.6853 | session 实时行为是最关键增益 |
 | HyFormer-Session, 60min | 当前 session + 长期历史双序列 | 0.7833 | 0.6679 | 60 分钟阈值有效，但弱于 30 分钟 |
-| HyFormer-Static | 用户画像 + 商品/类目静态统计特征 | 0.8042 | 0.6970 | 静态特征补充纯行为序列无法表达的先验 |
+| HyFormer-Static | 用户画像 + 商品/类目静态统计特征 | 0.7943 | 0.6824 | 用户级切分后仍优于基础 HyFormer |
 
 严格消融说明，电商购买预测不仅依赖“用户看过什么”，还依赖“什么时候看”“以什么行为方式看”“是否属于当前 session”以及“用户和商品本身有什么属性”。其中 session 级建模带来最大的结构性提升，说明课程要求中强调的当前 session 实时行为非常关键。静态特征进一步提升 AUC 和 GAUC，说明用户画像和商品侧先验可以有效补充序列表示。
 
@@ -233,7 +233,7 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 | 实验 | 改变点 | AUC | GAUC | 说明 |
 | --- | --- | ---: | ---: | --- |
 | HyFormer-Session + hard negative | 提高 `fav/cart` 高意图负样本比例，正负约 1:1 | 0.7788 | 0.6545 | 验证集更难，不能与原始负采样直接比较 |
-| HyFormer-Hierarchical | `max_seq_len=500`，最近 100 条细粒度 + 更早历史 8 chunk 压缩 | 0.8058 | 0.7126 | 长序列扩展设置，最终最优 GAUC |
+| HyFormer-Hierarchical | `max_seq_len=500`，最近 100 条细粒度 + 更早历史 8 chunk 压缩 | 0.7988 | 0.7047 | 用户级切分下最终最优 GAUC |
 
 Hard negative 实验改变了负样本分布，让模型区分“接近购买但尚未购买”和“真实购买”，更适合检验模型鲁棒性，但不能直接与原始负采样实验比较。长序列分层压缩实验将最大历史长度从 100 扩展到 500，并将更早历史压缩成 chunk 表示，说明长期历史对用户内排序有价值。
 
@@ -243,17 +243,17 @@ Hard negative 实验改变了负样本分布，让模型区分“接近购买但
 
 | 数据集 | 模型 | 设置 | AUC | GAUC | 说明 |
 | --- | --- | --- | ---: | ---: | --- |
-| DIGINETICA | HyFormer-Session | 1 epoch, pos_weight=14.9 | 0.8807 | 0.7263 | session 建模在外部数据上仍有效 |
-| DIGINETICA | HyFormer-Time | 1 epoch, pos_weight=14.9 | 0.8309 | 0.7641 | 时间特征对 session 内排序更有帮助 |
-| DIGINETICA | HyFormer-Static | 1 epoch, pos_weight=14.9 | 0.8871 | 0.7493 | 商品价格/类目等静态特征提升全局判断 |
+| DIGINETICA | HyFormer-Session | 1 epoch, pos_weight=14.9, session-level split | 0.8785 | 0.7182 | session 建模在外部数据上仍有效 |
+| DIGINETICA | HyFormer-Time | 1 epoch, pos_weight=14.9, session-level split | 0.8142 | 0.7053 | 时间特征在该短序列数据上表现较弱 |
+| DIGINETICA | HyFormer-Static | 1 epoch, pos_weight=14.9, session-level split | 0.8804 | 0.7120 | 商品价格/类目等静态特征提升全局判断 |
 
-DIGINETICA 外部验证支持了本项目的核心观察：session 级实时行为是购买预测的重要信号；时间间隔更有助于排序指标 GAUC；商品侧静态特征能够补充行为序列，提高整体购买概率判断。由于 DIGINETICA 的 session 较短，长序列分层压缩不是该数据集上的重点。
+DIGINETICA 外部验证支持了本项目的核心观察：session 级实时行为是购买预测的重要信号，商品侧静态特征能够补充行为序列，提高整体购买概率判断。由于 DIGINETICA 的 session 较短，平均历史长度只有约 2.37，时间间隔和长序列分层压缩在该数据集上不是重点；因此它主要用于验证 session 建模和静态商品特征，而不是验证超长历史建模。
 
 ### 最终模型选择说明
 
-在严格消融设置下，`HyFormer-Static` 是表现最好的模型，AUC 为 0.8042，GAUC 为 0.6970，说明 session 建模与静态特征融合是最稳定、最有效的核心方案。
+在严格消融设置下，`HyFormer-Static` 是表现最好的模型，AUC 为 0.7943，GAUC 为 0.6824，说明 session 建模与静态特征融合是稳定、有效的核心方案。
 
-在扩展长序列设置下，`HyFormer-Hierarchical` 进一步利用最多 500 条历史行为，并通过分层压缩控制计算成本，最终达到 AUC 0.8058、GAUC 0.7126。因此，本项目最终选择 `HyFormer-Hierarchical` 作为最终模型。
+在扩展长序列设置下，`HyFormer-Hierarchical` 进一步利用最多 500 条历史行为，并通过分层压缩控制计算成本，最终达到 AUC 0.7988、GAUC 0.7047。因此，本项目最终选择 `HyFormer-Hierarchical` 作为最终模型。
 
 项目也尝试过直接使用 `raw_sample.csv` 中的广告点击标签进行 CTR 预测，但在只使用历史 `brand/cate` 序列时，启发式特征与点击标签的相关性较弱，模型 AUC 仅在 0.51 左右。因此最终实验采用 `behavior_log` 构造购买预测任务，更符合课程中“基于当前 session 实时行为预测最终是否购买”的要求。
 

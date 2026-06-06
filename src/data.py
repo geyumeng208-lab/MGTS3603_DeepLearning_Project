@@ -7,7 +7,7 @@ from typing import Iterable
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset, Subset
 
 from src.utils import Config
 
@@ -93,10 +93,9 @@ def build_dataloaders(cfg: Config) -> tuple[DataLoader, DataLoader, FieldDims]:
         samples, field_dims = generate_synthetic_samples(cfg)
 
     dataset = TaobaoAdDataset(samples, cfg.max_seq_len)
-    valid_size = max(1, int(len(dataset) * cfg.valid_ratio))
-    train_size = len(dataset) - valid_size
-    generator = torch.Generator().manual_seed(cfg.seed)
-    train_set, valid_set = random_split(dataset, [train_size, valid_size], generator=generator)
+    train_indices, valid_indices = split_indices_by_user(samples, cfg.valid_ratio, cfg.seed)
+    train_set = Subset(dataset, train_indices)
+    valid_set = Subset(dataset, valid_indices)
 
     train_loader = DataLoader(
         train_set,
@@ -113,6 +112,24 @@ def build_dataloaders(cfg: Config) -> tuple[DataLoader, DataLoader, FieldDims]:
         pin_memory=torch.cuda.is_available(),
     )
     return train_loader, valid_loader, field_dims
+
+
+def split_indices_by_user(samples: list[dict], valid_ratio: float, seed: int) -> tuple[list[int], list[int]]:
+    users = sorted({sample["user_id"] for sample in samples})
+    rng = np.random.default_rng(seed)
+    rng.shuffle(users)
+    valid_user_count = max(1, int(len(users) * valid_ratio))
+    valid_users = set(users[:valid_user_count])
+    train_indices: list[int] = []
+    valid_indices: list[int] = []
+    for idx, sample in enumerate(samples):
+        if sample["user_id"] in valid_users:
+            valid_indices.append(idx)
+        else:
+            train_indices.append(idx)
+    if not train_indices or not valid_indices:
+        raise ValueError("用户级切分失败，请检查样本数量和 valid_ratio")
+    return train_indices, valid_indices
 
 
 def load_csv(path: Path, cfg: Config) -> tuple[list[dict], FieldDims]:
