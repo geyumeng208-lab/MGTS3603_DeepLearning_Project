@@ -153,18 +153,18 @@ def load_csv(path: Path, cfg: Config) -> tuple[list[dict], FieldDims]:
             hist_time_deltas = parse_float_sequence(row.get("hist_time_deltas", ""))
             hist_btags = parse_sequence(row.get("hist_btags", ""))
             user_static_ids = [
-                int(row.get("user_gender", 0) or 0),
-                int(row.get("user_age", 0) or 0),
-                int(row.get("user_pvalue", 0) or 0),
-                int(row.get("user_shopping", 0) or 0),
-                int(row.get("user_occupation", 0) or 0),
-                int(row.get("user_new_level", 0) or 0),
+                parse_optional_int(row.get("user_gender", 0)),
+                parse_optional_int(row.get("user_age", 0)),
+                parse_optional_int(row.get("user_pvalue", 0)),
+                parse_optional_int(row.get("user_shopping", 0)),
+                parse_optional_int(row.get("user_occupation", 0)),
+                parse_optional_int(row.get("user_new_level", 0)),
             ]
             item_static_values = [
-                float(row.get("brand_price_mean", 0.0) or 0.0),
-                float(row.get("brand_ad_count", 0.0) or 0.0),
-                float(row.get("cate_price_mean", 0.0) or 0.0),
-                float(row.get("cate_ad_count", 0.0) or 0.0),
+                parse_optional_float(row.get("brand_price_mean", 0.0)),
+                parse_optional_float(row.get("brand_ad_count", 0.0)),
+                parse_optional_float(row.get("cate_price_mean", 0.0)),
+                parse_optional_float(row.get("cate_ad_count", 0.0)),
             ]
             max_user = max(max_user, user_id)
             max_item = max(max_item, item_id, *(hist_items or [0]))
@@ -206,6 +206,24 @@ def parse_float_sequence(value: str) -> list[float]:
     if not value:
         return []
     return [float(token) for token in value.replace(",", " ").split() if token]
+
+
+def parse_optional_int(value: object, default: int = 0) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        return int(float(str(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_optional_float(value: object, default: float = 0.0) -> float:
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def generate_synthetic_samples(cfg: Config) -> tuple[list[dict], FieldDims]:

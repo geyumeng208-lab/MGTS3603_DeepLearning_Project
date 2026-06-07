@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import fields
 from pathlib import Path
 
 import yaml
@@ -58,6 +59,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--synthetic_samples", type=int, default=None)
     parser.add_argument("--pos_weight", type=float, default=None)
     parser.add_argument("--session_gap_minutes", type=float, default=None)
+    parser.add_argument("--embedding_dim", type=int, default=None)
+    parser.add_argument("--hyformer_layers", type=int, default=None)
+    parser.add_argument("--hyformer_ff_dim", type=int, default=None)
+    parser.add_argument("--twin_heads", type=int, default=None)
+    parser.add_argument("--recent_seq_len", type=int, default=None)
+    parser.add_argument("--long_num_chunks", type=int, default=None)
+    parser.add_argument("--dynamic_recent_len", type=int, default=None)
+    parser.add_argument("--learning_rate", type=float, default=None)
+    parser.add_argument("--weight_decay", type=float, default=None)
+    parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument(
         "--hyformer_encoder_type",
         type=str,
@@ -82,12 +93,26 @@ def load_config(args: argparse.Namespace) -> Config:
         "synthetic_samples",
         "pos_weight",
         "session_gap_minutes",
+        "embedding_dim",
+        "hyformer_layers",
+        "hyformer_ff_dim",
+        "twin_heads",
+        "recent_seq_len",
+        "long_num_chunks",
+        "dynamic_recent_len",
+        "learning_rate",
+        "weight_decay",
+        "num_workers",
         "hyformer_encoder_type",
         "device",
     ]:
         value = getattr(args, key)
         if value is not None:
             raw[key] = value
+    known_fields = {field.name for field in fields(Config)}
+    unknown_fields = sorted(set(raw) - known_fields)
+    if unknown_fields:
+        raise ValueError(f"配置文件包含未知字段: {unknown_fields}")
     return Config(**raw)
 
 
