@@ -119,7 +119,7 @@ def benchmark_one(
 
     return {
         "model": model_name,
-        "encoder_type": cfg.hyformer_encoder_type,
+        "encoder_type": cfg.hyformer_encoder_type if model_name.startswith("hyformer") else "-",
         "batch_size": batch_size,
         "seq_len": seq_len,
         "mean_ms": float(np.mean(timings)),

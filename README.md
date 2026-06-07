@@ -435,15 +435,58 @@ python scripts/benchmark_latency.py --models hyformer_static --encoder_types lon
 
 ### 外部数据集验证
 
-为了检验结论是否只依赖淘宝数据，本项目额外使用 DIGINETICA 构造 session 购买预测任务。DIGINETICA 的平均历史长度较短，因此更适合验证“当前 session 实时行为”和“商品侧静态特征”的作用，而不适合验证超长历史分层压缩。
+为了检验结论是否只依赖淘宝数据，本项目额外使用 DIGINETICA 构造 session 购买预测任务。DIGINETICA 的平均历史长度较短，因此更适合验证短 session 场景下应该使用哪类序列模型，而不适合验证超长历史分层压缩。
+
+统一实验设置如下：
+
+```bash
+python train.py --model <model> --data_path data/diginetica_sequence_100k.csv --epochs 1 --batch_size 512 --max_seq_len 100 --pos_weight 14.9 --device cpu
+```
 
 | 数据集 | 模型 | 设置 | AUC | GAUC | 说明 |
 | --- | --- | --- | ---: | ---: | --- |
-| DIGINETICA | HyFormer-Session | 1 epoch, pos_weight=14.9, session-level split | 0.8785 | 0.7182 | session 建模在外部数据上仍有效 |
-| DIGINETICA | HyFormer-Time | 1 epoch, pos_weight=14.9, session-level split | 0.8142 | 0.7053 | 时间特征在该短序列数据上表现较弱 |
-| DIGINETICA | HyFormer-Static | 1 epoch, pos_weight=14.9, session-level split | 0.8804 | 0.7120 | 商品价格/类目等静态特征提升全局判断 |
+| DIGINETICA | LSTM | 1 epoch, pos_weight=14.9, session-level split | 0.8777 | 0.7150 | 短序列强基线，效果接近复杂模型 |
+| DIGINETICA | LSTM-Attention | 同上 | 0.5523 | 0.5285 | 注意力池化在该短序列设置下不稳定 |
+| DIGINETICA | Transformer-Baseline | 同上 | 0.8740 | 0.7170 | 完成 Transformer 短序列实验，GAUC 接近最优 |
+| DIGINETICA | SIM | 同上 | 0.6560 | 0.6448 | 长序列检索思想在短序列上优势不明显 |
+| DIGINETICA | ETA | 同上 | 0.6152 | 0.5893 | SimHash 检索在短 session 中收益较弱 |
+| DIGINETICA | TWIN | 同上 | 0.7140 | 0.6913 | 时延低，但短序列效果不如 LSTM/Transformer |
+| DIGINETICA | HyFormer | 同上 | 0.6220 | 0.6492 | 原始 HyFormer 适配版不足 |
+| DIGINETICA | HyFormer-Opt | 同上 | 0.7189 | 0.7009 | 增强上下文后明显提升 |
+| DIGINETICA | HyFormer-Time | 同上 | 0.8142 | 0.7053 | 时间特征有效，但不是短序列最优 |
+| DIGINETICA | HyFormer-Session | 同上 | 0.8785 | 0.7182 | GAUC 最优，session 建模在外部数据上仍有效 |
+| DIGINETICA | HyFormer-Static | 同上 | 0.8804 | 0.7120 | AUC 最优，商品侧静态特征提升全局判断 |
 
-DIGINETICA 外部验证支持了本项目的核心观察：session 级实时行为是购买预测的重要信号，商品侧静态特征能够补充行为序列，提高整体购买概率判断。由于 DIGINETICA 的 session 较短，平均历史长度只有约 2.37，时间间隔和长序列分层压缩在该数据集上不是重点；因此它主要用于验证 session 建模和静态商品特征，而不是验证超长历史建模。
+短序列时延对比如下：
+
+```bash
+python scripts/benchmark_latency.py --models base transformer_baseline twin hyformer_session hyformer_static --batch_sizes 1 32 --seq_lens 50 100 --warmup 3 --iters 10 --device cpu
+```
+
+| model | encoder_type | batch_size | seq_len | mean_ms | p50_ms | p95_ms | per_sample_ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| base | - | 1 | 50 | 1.19 | 1.18 | 1.25 | 1.19 |
+| base | - | 1 | 100 | 1.81 | 1.79 | 2.00 | 1.81 |
+| base | - | 32 | 50 | 5.63 | 5.64 | 5.87 | 0.18 |
+| base | - | 32 | 100 | 9.60 | 9.51 | 10.10 | 0.30 |
+| transformer_baseline | - | 1 | 50 | 1.90 | 1.84 | 2.08 | 1.90 |
+| transformer_baseline | - | 1 | 100 | 2.01 | 1.99 | 2.25 | 2.01 |
+| transformer_baseline | - | 32 | 50 | 5.29 | 5.21 | 5.58 | 0.17 |
+| transformer_baseline | - | 32 | 100 | 6.95 | 6.94 | 7.23 | 0.22 |
+| twin | - | 1 | 50 | 0.98 | 0.94 | 1.18 | 0.98 |
+| twin | - | 1 | 100 | 1.08 | 1.08 | 1.16 | 1.08 |
+| twin | - | 32 | 50 | 2.83 | 2.82 | 3.13 | 0.09 |
+| twin | - | 32 | 100 | 3.32 | 3.25 | 3.74 | 0.10 |
+| hyformer_session | longer | 1 | 50 | 7.93 | 7.86 | 8.56 | 7.93 |
+| hyformer_session | longer | 1 | 100 | 8.69 | 8.56 | 9.31 | 8.69 |
+| hyformer_session | longer | 32 | 50 | 16.87 | 16.73 | 17.50 | 0.53 |
+| hyformer_session | longer | 32 | 100 | 18.92 | 18.59 | 20.52 | 0.59 |
+| hyformer_static | longer | 1 | 50 | 8.42 | 8.41 | 8.83 | 8.42 |
+| hyformer_static | longer | 1 | 100 | 7.91 | 7.87 | 8.35 | 7.91 |
+| hyformer_static | longer | 32 | 50 | 15.13 | 15.15 | 15.70 | 0.47 |
+| hyformer_static | longer | 32 | 100 | 17.30 | 16.65 | 19.52 | 0.54 |
+
+DIGINETICA 外部验证支持了本项目的核心观察：session 级实时行为是购买预测的重要信号，商品侧静态特征能够补充行为序列，提高整体购买概率判断。与此同时，短 session 场景不需要复杂的超长历史检索和分层压缩；如果只看离线效果，`HyFormer-Session` 和 `HyFormer-Static` 最强；如果同时考虑推理时延，`Transformer-Baseline` 和 `LSTM` 是更轻量的强基线；`TWIN` 虽然最快，但短序列上 AUC/GAUC 不足，更适合长历史或在线粗排场景。由于 DIGINETICA 的 session 较短，平均历史长度只有约 2.37，因此它主要用于验证 session 建模、静态商品特征和短序列模型选择，而不是验证超长历史建模。
 
 ### 最终模型选择说明
 
