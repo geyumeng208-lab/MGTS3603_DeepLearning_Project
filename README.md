@@ -22,8 +22,8 @@
 - `Transformer-Baseline`：由组员 DIGINETICA baseline 改造而来，使用标准 Transformer encoder 直接建模完整历史序列。
 - `SIM`：类别硬筛 GSU + Target Attention ESU。
 - `ETA`：SimHash 二进制指纹 + 汉明距离 Top-K 检索 + Target Attention。
-- `TWIN`：作为对比实验，参考 TWIN 论文的 CP-GSU 思路，使用共享多头 Target Attention 分数完成 GSU Top-K 检索和 ESU 兴趣聚合，并加入压缩 cross feature bias。
-- `HyFormer`：基于 [WestbrookLong/Hyformer_Pytorch](https://github.com/WestbrookLong/Hyformer_Pytorch) 的 HyFormerBackbone，使用序列编码器、query tokens、non-sequence tokens 和 QueryBoostMixer 建模用户行为序列。
+- `TWIN`：作为对比实验，参考 [TWIN: TWo-stage Interest Network for Lifelong User Behavior Modeling in CTR Prediction at Kuaishou](https://arxiv.org/abs/2302.02352) 的 CP-GSU 思路，使用共享多头 Target Attention 分数完成 GSU Top-K 检索和 ESU 兴趣聚合，并加入压缩 cross feature bias。
+- `HyFormer`：参考 [HyFormer: Revisiting the Roles of Sequence Modeling and Feature Interaction in CTR Prediction](https://arxiv.org/abs/2601.12681)，并基于 [WestbrookLong/Hyformer_Pytorch](https://github.com/WestbrookLong/Hyformer_Pytorch) 的 HyFormerBackbone，使用序列编码器、query tokens、non-sequence tokens 和 QueryBoostMixer 建模用户行为序列。
 - `HyFormer-Opt`：固定 HyFormerBackbone 不变，将历史 brand 序列和 cate 序列拆成两条异构序列，并增强 non-sequence context，用于当前购买预测任务。
 - `HyFormer-Time`：在 HyFormer-Opt 基础上加入历史行为到预测时刻的时间间隔、相邻行为间隔、时间桶 embedding 和时间衰减 gate。
 - `HyFormer-Event`：在 HyFormer-Time 基础上加入行为类型 embedding，将 `pv`、`fav`、`cart`、`buy` 编码进历史行为 token。
@@ -234,6 +234,14 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 - `loss`：二分类交叉熵损失
 - `auc`：全局 AUC
 - `gauc`：按用户分组的 GAUC，更贴近广告排序评估
+
+## 参考论文与代码来源
+
+本项目主要参考以下论文和开源实现：
+
+- HyFormer 论文：[HyFormer: Revisiting the Roles of Sequence Modeling and Feature Interaction in CTR Prediction](https://arxiv.org/abs/2601.12681)。本文启发了本项目中 sequence representation encoder、query tokens、non-sequence tokens 和特征交互模块的设计。
+- HyFormer 开源实现：[WestbrookLong/Hyformer_Pytorch](https://github.com/WestbrookLong/Hyformer_Pytorch)。本项目的 HyFormerBackbone 来自该实现，并在此基础上适配淘宝购买预测任务。
+- TWIN 论文：[TWIN: TWo-stage Interest Network for Lifelong User Behavior Modeling in CTR Prediction at Kuaishou](https://arxiv.org/abs/2302.02352)。本文启发了本项目中的 Top-K 行为检索、GSU/ESU 一致性建模和低时延在线粗排对比实验。
 
 ## 结果分析
 
