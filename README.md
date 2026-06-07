@@ -6,16 +6,19 @@ Teacher: HyFormer-Hierarchical
 Student: HyFormer-Static 或 HyFormer-OfflineLong
 输出：蒸馏前后 AUC / GAUC / latency 对比
 PPT 负责页：Teacher-Student 框架图 + 实验表
+
 成员 B：模型压缩实验
 跑 layers=1、embedding_dim=16、ff_dim=64、long_num_chunks=4
 尝试 TorchScript / ONNX Runtime 作为附加工程实验
 输出：参数量、latency、AUC/GAUC 对比
 PPT 负责页：压缩策略和效果-时延 trade-off
+
 成员 C：TWIN 优化实验
 调 top_k、heads
 加时间衰减或行为类型 embedding，若时间不够至少做超参数实验
 输出：TWIN 原版 vs TWIN 优化版 vs HyFormer 的效果和时延
 PPT 负责页：为什么 TWIN 适合在线粗排
+
 成员 D：OfflineLong / 动态长序列优化
 对比 HyFormer-Hierarchical、HyFormer-Dynamic、HyFormer-TopK、HyFormer-OfflineLong
 做 recent length 50 / 100 / 200 实验
