@@ -277,6 +277,7 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 | 模型 | 序列建模方式 | AUC | GAUC | 说明 |
 | --- | --- | ---: | ---: | --- |
 | base / LSTM | LSTM 编码完整历史序列 | 0.6905 | 0.6142 | 基线模型 |
+| LSTM-Attention | LSTM + masked attention pooling | 0.6987 | 0.6273 | 组员 baseline 融合后，注意力池化提升 GAUC |
 | SIM | 类目硬筛 + Target Attention | 0.6962 | 0.6227 | 注意力召回与聚合 |
 | ETA | SimHash 检索 + Target Attention | 0.6884 | 0.6200 | 向量检索式召回 |
 | TWIN-lite | 简化统一相似度检索与注意力聚合 | 0.6866 | 0.6202 | 旧版轻量实现 |
@@ -284,7 +285,7 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 | HyFormer | HyFormerBackbone + QueryBoostMixer | 0.6938 | 0.6194 | 开源 HyFormer 适配版 |
 | HyFormer-Opt | 双序列 HyFormerBackbone + 增强上下文 | 0.7008 | 0.6186 | 针对本任务的 HyFormer 基础优化 |
 
-从主模型对比可以看出，LSTM 已经能够学习基本购买转化模式，但 HyFormer-Opt 和 TWIN 在 AUC 上更好，说明注意力、多序列结构和目标相关建模对购买预测是有效的。由于本项目后续需要融合行为类型、时间、session 和静态特征，HyFormer 的异构多序列结构更适合作为最终主线。
+从主模型对比可以看出，LSTM 已经能够学习基本购买转化模式，加入 attention pooling 后的 `LSTM-Attention` 进一步提升了 AUC 和 GAUC，说明历史行为中不同位置的重要性并不相同。HyFormer-Opt 和 TWIN 在 AUC 上也更好，说明注意力、多序列结构和目标相关建模对购买预测是有效的。由于本项目后续需要融合行为类型、时间、session 和静态特征，HyFormer 的异构多序列结构更适合作为最终主线。组员提供的 Transformer baseline 已接入代码，但在 CPU 环境下训练成本明显高于 LSTM-Attention，因此不纳入主模型 2 epoch 对比表，只作为可选补充模型保留。
 
 ### 严格消融实验
 
