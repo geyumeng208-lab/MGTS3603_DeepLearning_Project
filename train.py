@@ -21,6 +21,10 @@ def parse_args() -> argparse.Namespace:
         choices=[
             "base",
             "lstm",
+            "lstm_attn",
+            "lstm_attention",
+            "transformer_baseline",
+            "full_transformer_baseline",
             "sim",
             "eta",
             "twin",
@@ -60,7 +64,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pos_weight", type=float, default=None)
     parser.add_argument("--session_gap_minutes", type=float, default=None)
     parser.add_argument("--embedding_dim", type=int, default=None)
+    parser.add_argument("--lstm_hidden_dim", type=int, default=None)
     parser.add_argument("--hyformer_layers", type=int, default=None)
+    parser.add_argument("--hyformer_heads", type=int, default=None)
     parser.add_argument("--hyformer_ff_dim", type=int, default=None)
     parser.add_argument("--twin_heads", type=int, default=None)
     parser.add_argument("--recent_seq_len", type=int, default=None)
@@ -94,7 +100,9 @@ def load_config(args: argparse.Namespace) -> Config:
         "pos_weight",
         "session_gap_minutes",
         "embedding_dim",
+        "lstm_hidden_dim",
         "hyformer_layers",
+        "hyformer_heads",
         "hyformer_ff_dim",
         "twin_heads",
         "recent_seq_len",

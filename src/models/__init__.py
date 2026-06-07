@@ -10,6 +10,14 @@ def build_model(cfg: Config, field_dims: FieldDims):
         from src.models.lstm import LSTMBaseModel
 
         return LSTMBaseModel(cfg, field_dims)
+    if name in {"lstm_attn", "lstm_attention"}:
+        from src.models.sequence_baselines import LSTMAttentionModel
+
+        return LSTMAttentionModel(cfg, field_dims)
+    if name in {"transformer_baseline", "full_transformer_baseline"}:
+        from src.models.sequence_baselines import TransformerBaselineModel
+
+        return TransformerBaselineModel(cfg, field_dims)
     if name == "sim":
         from src.models.sim import SIMModel
 

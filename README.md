@@ -18,6 +18,8 @@
 本项目实现的主要模型包括：
 
 - `base` / `LSTM`：将用户历史行为序列输入 LSTM，取最后有效隐状态作为长期兴趣表示。
+- `LSTM-Attention`：由组员 DIGINETICA baseline 改造而来，在 LSTM 输出上加入 masked attention pooling。
+- `Transformer-Baseline`：由组员 DIGINETICA baseline 改造而来，使用标准 Transformer encoder 直接建模完整历史序列。
 - `SIM`：类别硬筛 GSU + Target Attention ESU。
 - `ETA`：SimHash 二进制指纹 + 汉明距离 Top-K 检索 + Target Attention。
 - `TWIN`：作为对比实验，参考 TWIN 论文的 CP-GSU 思路，使用共享多头 Target Attention 分数完成 GSU Top-K 检索和 ESU 兴趣聚合，并加入压缩 cross feature bias。
@@ -103,7 +105,11 @@ python scripts/build_diginetica_sequence.py --input_dir data/dataset-train-digin
 
 ```bash
 python train.py --model hyformer_session --data_path data/diginetica_sequence_100k.csv --epochs 1 --batch_size 512 --max_seq_len 100 --pos_weight 14.9
+python train.py --model lstm_attn --data_path data/diginetica_sequence_100k.csv --epochs 3 --batch_size 256 --max_seq_len 50
+python train.py --model transformer_baseline --data_path data/diginetica_sequence_100k.csv --epochs 3 --batch_size 256 --max_seq_len 50
 ```
+
+组员提供的 `project2.0` 中包含基于 DIGINETICA 的 LSTM、LSTM+Attention 和 Transformer baseline。为避免引入第二套训练入口和随机切分逻辑，本项目没有直接合并其 `main.py/utils.py`，而是将其中的 LSTM+Attention 和 Transformer 结构适配为统一框架下的 `lstm_attn` 与 `transformer_baseline`，继续复用本项目的 CSV 构造、用户/session 级切分、AUC/GAUC 指标和 latency benchmark。
 
 ## 外部 HyFormer 依赖
 
@@ -186,6 +192,8 @@ python train.py --model hyformer_hier --data_path data/purchase_sequence_100k_st
 
 ```bash
 python train.py --model base
+python train.py --model lstm_attn
+python train.py --model transformer_baseline
 python train.py --model sim
 python train.py --model eta
 python train.py --model twin
@@ -496,6 +504,7 @@ python train.py --model hyformer_hier --data_path data/purchase_sequence_100k_st
         ├── hyformer_time.py
         ├── hyformer_topk.py
         ├── lstm.py
+        ├── sequence_baselines.py
         ├── sim.py
         └── twin.py
 ```

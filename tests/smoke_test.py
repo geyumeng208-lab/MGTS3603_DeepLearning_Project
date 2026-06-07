@@ -33,6 +33,8 @@ class ModelSmokeTest(unittest.TestCase):
 
         for name in [
             "base",
+            "lstm_attn",
+            "transformer_baseline",
             "sim",
             "eta",
             "twin",
