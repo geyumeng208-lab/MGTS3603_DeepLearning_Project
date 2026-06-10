@@ -30,6 +30,22 @@ def build_model(cfg: Config, field_dims: FieldDims):
         from src.models.twin import TWINModel
 
         return TWINModel(cfg, field_dims)
+    if name == "twin_nonlinear_sim":
+        from src.models.twin_nonlinear_sim import TWINModelNonLinearSim
+
+        return TWINModelNonLinearSim(cfg, field_dims)
+    if name == "twin_gate_fusion":
+        from src.models.twin_gate_fusion import TWINModelGateFusion
+
+        return TWINModelGateFusion(cfg, field_dims)
+    if name in {"twin_shared_emb", "twin_shared"}:
+        from src.models.twin_shared_emb import TWINModelSharedEmb
+
+        return TWINModelSharedEmb(cfg, field_dims)
+    if name in {"twin_gumbel_topk", "twin_soft_topk"}:
+        from src.models.twin_gumbel_topk import TWINModelSoftTopK
+
+        return TWINModelSoftTopK(cfg, field_dims)
     if name in {"twin_lite", "twin_old"}:
         from src.models.twin_lite import TWINModel as TWINLiteModel
 
