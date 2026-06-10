@@ -30,6 +30,10 @@ def parse_args() -> argparse.Namespace:
             "twin",
             "twin_lite",
             "twin_old",
+            "twin_nonlinear_sim",
+            "twin_gate_fusion",
+            "twin_shared_emb",
+            "twin_gumbel_topk",
             "hyformer",
             "hybrid_transformer",
             "hyformer_opt",
@@ -69,6 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hyformer_heads", type=int, default=None)
     parser.add_argument("--hyformer_ff_dim", type=int, default=None)
     parser.add_argument("--twin_heads", type=int, default=None)
+    parser.add_argument("--twin_cross_features", type=int, default=None)
     parser.add_argument("--recent_seq_len", type=int, default=None)
     parser.add_argument("--long_num_chunks", type=int, default=None)
     parser.add_argument("--dynamic_recent_len", type=int, default=None)
@@ -82,6 +87,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
     )
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument("--fp16", action="store_true", default=False, help="Enable FP16 mixed precision (AMP)")
     return parser.parse_args()
 
 
@@ -105,6 +111,7 @@ def load_config(args: argparse.Namespace) -> Config:
         "hyformer_heads",
         "hyformer_ff_dim",
         "twin_heads",
+        "twin_cross_features",
         "recent_seq_len",
         "long_num_chunks",
         "dynamic_recent_len",
@@ -131,7 +138,7 @@ def main() -> None:
 
     train_loader, valid_loader, field_dims = build_dataloaders(cfg)
     model = build_model(cfg, field_dims)
-    trainer = Trainer(model, cfg)
+    trainer = Trainer(model, cfg, use_fp16=args.fp16)
     trainer.fit(train_loader, valid_loader)
 
 
