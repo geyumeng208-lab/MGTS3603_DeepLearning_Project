@@ -63,6 +63,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--synthetic_samples", type=int, default=None)
     parser.add_argument("--pos_weight", type=float, default=None)
     parser.add_argument("--session_gap_minutes", type=float, default=None)
+    parser.add_argument("--adaptive_session_gap", action="store_true")
+    parser.add_argument("--multitask_loss_weight", type=float, default=None)
+    parser.add_argument("--auto_pos_weight", action="store_true")
     parser.add_argument("--embedding_dim", type=int, default=None)
     parser.add_argument("--lstm_hidden_dim", type=int, default=None)
     parser.add_argument("--hyformer_layers", type=int, default=None)
@@ -99,6 +102,9 @@ def load_config(args: argparse.Namespace) -> Config:
         "synthetic_samples",
         "pos_weight",
         "session_gap_minutes",
+        "adaptive_session_gap",
+        "multitask_loss_weight",
+        "auto_pos_weight",
         "embedding_dim",
         "lstm_hidden_dim",
         "hyformer_layers",

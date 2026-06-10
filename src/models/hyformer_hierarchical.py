@@ -54,7 +54,15 @@ class HierarchicalHyFormerModel(StaticFeatureHyFormerModel):
 
     def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         mask = ensure_non_empty_mask(batch["hist_mask"])
-        current_mask, _ = self.split_session(mask, batch["hist_time_deltas"])
+        if self.adaptive_session_gap:
+            gap = batch.get("session_gap_threshold")
+            if gap is not None and (gap > 0).any():
+                gap = gap.unsqueeze(-1)
+            else:
+                gap = self.session_gap_seconds
+        else:
+            gap = self.session_gap_seconds
+        current_mask, _ = self.split_session(mask, batch["hist_time_deltas"], gap)
         recent_mask, long_mask = self.split_recent_long(mask)
 
         user = self.user_emb(batch["user_id"])
@@ -121,7 +129,11 @@ class HierarchicalHyFormerModel(StaticFeatureHyFormerModel):
             [user, target, all_mean, current_mean, boosted, user_static, item_static, context_stats],
             dim=-1,
         )
-        return self.head(features)
+        logits = self.head(features)
+        if self.training and self.multitask_loss_weight > 0:
+            btag_logits = self.btag_head(features)
+            return {"logits": logits, "btag_logits": btag_logits, "btag_labels": batch.get("btag", torch.zeros_like(batch["label"]).long())}
+        return logits
 
     def split_recent_long(self, mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         seq_len = mask.size(1)

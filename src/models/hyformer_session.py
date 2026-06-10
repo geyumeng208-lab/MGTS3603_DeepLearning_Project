@@ -24,6 +24,8 @@ class SessionAwareHyFormerModel(CTRBaseModel):
         self.num_query_tokens = cfg.hyformer_query_tokens
         self.decay_hours = cfg.time_decay_hours
         self.session_gap_seconds = cfg.session_gap_minutes * 60.0
+        self.adaptive_session_gap = cfg.adaptive_session_gap
+        self.multitask_loss_weight = cfg.multitask_loss_weight
 
         self.btag_emb = nn.Embedding(cfg.btag_num_types, cfg.embedding_dim, padding_idx=0)
         self.time_gap_emb = nn.Embedding(cfg.time_num_bins, cfg.embedding_dim)
@@ -60,10 +62,19 @@ class SessionAwareHyFormerModel(CTRBaseModel):
             short_seq_len=cfg.hyformer_short_seq_len,
         )
         self.head = MLP(cfg.embedding_dim * 5 + 6, cfg.hidden_dims, cfg.dropout)
+        self.btag_head = nn.Linear(cfg.embedding_dim * 5 + 6, cfg.btag_num_types)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         mask = ensure_non_empty_mask(batch["hist_mask"])
-        current_mask, long_mask = self.split_session(mask, batch["hist_time_deltas"])
+        if self.adaptive_session_gap:
+            gap = batch.get("session_gap_threshold")
+            if gap is not None and (gap > 0).any():
+                gap = gap.unsqueeze(-1)  # (batch, 1) for broadcasting
+            else:
+                gap = self.session_gap_seconds
+        else:
+            gap = self.session_gap_seconds
+        current_mask, long_mask = self.split_session(mask, batch["hist_time_deltas"], gap)
 
         user = self.user_emb(batch["user_id"])
         target_item = self.item_emb(batch["item_id"])
@@ -101,10 +112,19 @@ class SessionAwareHyFormerModel(CTRBaseModel):
         boosted_tokens = self.backbone(query_tokens, non_seq_tokens, sequence_tokens, sequence_masks)
         boosted = boosted_tokens.mean(dim=1)
         features = torch.cat([user, target, all_mean, current_mean, boosted, context_stats], dim=-1)
-        return self.head(features)
+        logits = self.head(features)
+        if self.training and self.multitask_loss_weight > 0:
+            btag_logits = self.btag_head(features)
+            return {"logits": logits, "btag_logits": btag_logits, "btag_labels": batch.get("btag", torch.zeros_like(batch["label"]).long())}
+        return logits
 
-    def split_session(self, mask: torch.Tensor, time_deltas: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        breaks = (time_deltas > self.session_gap_seconds) & mask
+    def split_session(
+        self, mask: torch.Tensor, time_deltas: torch.Tensor,
+        threshold: float | torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if threshold is None:
+            threshold = self.session_gap_seconds
+        breaks = (time_deltas > threshold) & mask
         has_future_break = torch.flip(torch.cumsum(torch.flip(breaks.long(), dims=[1]), dim=1), dims=[1]) > 0
         current_mask = mask & ~has_future_break
         # Keep at least the most recent valid event in current session.

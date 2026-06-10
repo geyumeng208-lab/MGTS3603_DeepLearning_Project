@@ -44,11 +44,14 @@ class Config:
     time_decay_hours: float = 24.0
     btag_num_types: int = 5
     session_gap_minutes: float = 30.0
+    adaptive_session_gap: bool = False
     static_feature_vocab_size: int = 64
     recent_seq_len: int = 100
     long_num_chunks: int = 8
     dynamic_low_activity_len: int = 50
     dynamic_recent_len: int = 100
+    multitask_loss_weight: float = 0.0
+    auto_pos_weight: bool = False
 
     batch_size: int = 128
     epochs: int = 3

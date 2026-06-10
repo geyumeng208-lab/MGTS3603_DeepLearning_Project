@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 from torch import nn
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 from src.metrics import auc_score, gauc_score
@@ -27,6 +28,8 @@ class Trainer:
 
     def fit(self, train_loader: DataLoader, valid_loader: DataLoader) -> None:
         print(f"device={self.device} model={self.cfg.model}")
+        if self.cfg.multitask_loss_weight > 0:
+            print(f"multitask_loss_weight={self.cfg.multitask_loss_weight}")
         for epoch in range(1, self.cfg.epochs + 1):
             train_loss = self.train_one_epoch(train_loader)
             metrics = self.evaluate(valid_loader)
@@ -43,8 +46,16 @@ class Trainer:
         total_count = 0
         for batch in loader:
             batch = self.move_batch(batch)
-            logits = self.model(batch)
-            loss = self.criterion(logits, batch["label"])
+            output = self.model(batch)
+            if isinstance(output, dict):
+                logits = output["logits"]
+                main_loss = self.criterion(logits, batch["label"])
+                btag_logits = output["btag_logits"]
+                btag_labels = output["btag_labels"].clamp(0, self.model.btag_num_types - 1)
+                btag_loss = F.cross_entropy(btag_logits, btag_labels, ignore_index=0)
+                loss = main_loss + self.cfg.multitask_loss_weight * btag_loss
+            else:
+                loss = self.criterion(output, batch["label"])
 
             self.optimizer.zero_grad(set_to_none=True)
             loss.backward()

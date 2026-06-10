@@ -40,6 +40,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min_timestamp", type=int, default=1400000000)
     parser.add_argument("--max_timestamp", type=int, default=1600000000)
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--adaptive_session_gap", action="store_true",
+        help="Compute per-sample adaptive session gap threshold")
+    parser.add_argument("--auto_pos_weight", action="store_true",
+        help="Compute pos_weight = neg/pos ratio and print at end")
     return parser.parse_args()
 
 
@@ -113,6 +117,27 @@ def safe_float(value: str) -> float:
     return float(value)
 
 
+def compute_adaptive_session_threshold(
+    timestamps: list[int], min_gap: float = 300.0, max_gap: float = 7200.0, multiplier: float = 3.0
+) -> float:
+    """Compute per-user adaptive session threshold based on behavior intervals.
+
+    Uses median time delta * multiplier, clamped to [min_gap, max_gap].
+    Returns threshold in seconds.
+    """
+    if len(timestamps) < 3:
+        return min_gap
+    deltas_ = sorted([
+        timestamps[i] - timestamps[i - 1]
+        for i in range(1, len(timestamps))
+        if timestamps[i] > timestamps[i - 1]
+    ])
+    if len(deltas_) < 2:
+        return min_gap
+    median_delta = deltas_[len(deltas_) // 2]
+    return max(min_gap, min(median_delta * multiplier, max_gap))
+
+
 def should_sample_negative(btag: str, args: argparse.Namespace, rng: random.Random) -> bool:
     if btag == "buy":
         return False
@@ -148,11 +173,13 @@ def main() -> None:
             "ad_id",
             "cate_id",
             "label",
+            "btag",
             "hist_ad_ids",
             "hist_cate_ids",
             "hist_btags",
             "hist_time_gaps",
             "hist_time_deltas",
+            "session_gap_threshold",
         ]
         if args.with_static_features:
             fieldnames.extend(
@@ -206,11 +233,15 @@ def main() -> None:
                     "ad_id": brand,
                     "cate_id": cate,
                     "label": label,
+                    "btag": BTAG_ID.get(btag, 0),
                     "hist_ad_ids": " ".join(str(item[1]) for item in selected),
                     "hist_cate_ids": " ".join(str(item[2]) for item in selected),
                     "hist_btags": " ".join(str(item[3]) for item in selected),
                     "hist_time_gaps": " ".join(str(value) for value in time_gaps),
                     "hist_time_deltas": " ".join(str(value) for value in time_deltas),
+                    "session_gap_threshold": (
+                        f"{compute_adaptive_session_threshold(timestamps):.1f}" if args.adaptive_session_gap else ""
+                    ),
                 }
                 if args.with_static_features:
                     profile = user_profiles.get(user, {})
@@ -250,11 +281,18 @@ def main() -> None:
                     flush=True,
                 )
 
+    pos_weight_suggestion = negatives / max(positives, 1)
     print(
         f"done scanned={scanned:,} written={written:,} "
-        f"positives={positives:,} negatives={negatives:,} output={args.output}",
+        f"positives={positives:,} negatives={negatives:,} "
+        f"pos_weight_suggestion={pos_weight_suggestion:.2f} output={args.output}",
         flush=True,
     )
+    if args.auto_pos_weight:
+        print(
+            f"[auto_pos_weight] --pos_weight {pos_weight_suggestion:.2f}",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

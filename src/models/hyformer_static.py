@@ -40,6 +40,7 @@ class StaticFeatureHyFormerModel(SessionAwareHyFormerModel):
             ]
         )
         self.head = MLP(cfg.embedding_dim * 7 + 6, cfg.hidden_dims, cfg.dropout)
+        self.btag_head = nn.Linear(cfg.embedding_dim * 7 + 6, cfg.btag_num_types)
 
     def build_static_features(self, batch: dict[str, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
         user_ids = batch["user_static_ids"].clamp(0, self.cfg.static_feature_vocab_size - 1)
@@ -52,7 +53,15 @@ class StaticFeatureHyFormerModel(SessionAwareHyFormerModel):
         # Reuse the session split and temporal/event token construction from the parent,
         # but inject static tokens into non-sequence context and the output head.
         mask = self.ensure_mask(batch["hist_mask"])
-        current_mask, long_mask = self.split_session(mask, batch["hist_time_deltas"])
+        if self.adaptive_session_gap:
+            gap = batch.get("session_gap_threshold")
+            if gap is not None and (gap > 0).any():
+                gap = gap.unsqueeze(-1)
+            else:
+                gap = self.session_gap_seconds
+        else:
+            gap = self.session_gap_seconds
+        current_mask, long_mask = self.split_session(mask, batch["hist_time_deltas"], gap)
 
         user = self.user_emb(batch["user_id"])
         target_item = self.item_emb(batch["item_id"])
@@ -111,7 +120,11 @@ class StaticFeatureHyFormerModel(SessionAwareHyFormerModel):
             [user, target, all_mean, current_mean, boosted, user_static, item_static, context_stats],
             dim=-1,
         )
-        return self.head(features)
+        logits = self.head(features)
+        if self.training and self.multitask_loss_weight > 0:
+            btag_logits = self.btag_head(features)
+            return {"logits": logits, "btag_logits": btag_logits, "btag_labels": batch.get("btag", torch.zeros_like(batch["label"]).long())}
+        return logits
 
     @staticmethod
     def ensure_mask(mask: torch.Tensor) -> torch.Tensor:
