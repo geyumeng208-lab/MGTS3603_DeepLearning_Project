@@ -40,6 +40,7 @@ class TaobaoAdDataset(Dataset):
             "item_id": torch.tensor(row["item_id"], dtype=torch.long),
             "cate_id": torch.tensor(row["cate_id"], dtype=torch.long),
             "label": torch.tensor(row["label"], dtype=torch.float32),
+            "btag": torch.tensor(row.get("btag", 0), dtype=torch.long),
             "hist_item_ids": torch.tensor(hist_items, dtype=torch.long),
             "hist_cate_ids": torch.tensor(hist_cates, dtype=torch.long),
             "hist_mask": torch.tensor(mask, dtype=torch.bool),
@@ -48,6 +49,7 @@ class TaobaoAdDataset(Dataset):
             "hist_btags": torch.tensor(hist_btags, dtype=torch.long),
             "user_static_ids": torch.tensor(row.get("user_static_ids", [0] * 6), dtype=torch.long),
             "item_static_values": torch.tensor(row.get("item_static_values", [0.0] * 4), dtype=torch.float32),
+            "session_gap_threshold": torch.tensor(row.get("session_gap_threshold", 0.0), dtype=torch.float32),
         }
 
 
@@ -96,6 +98,17 @@ def build_dataloaders(cfg: Config) -> tuple[DataLoader, DataLoader, FieldDims]:
     train_indices, valid_indices = split_indices_by_user(samples, cfg.valid_ratio, cfg.seed)
     train_set = Subset(dataset, train_indices)
     valid_set = Subset(dataset, valid_indices)
+
+    if cfg.auto_pos_weight and cfg.pos_weight <= 0:
+        train_labels = [samples[i]["label"] for i in train_indices]
+        pos_count = sum(1 for lab in train_labels if lab > 0.5)
+        neg_count = len(train_labels) - pos_count
+        if pos_count > 0 and neg_count > pos_count:
+            cfg.pos_weight = neg_count / pos_count
+            print(
+                f"auto_pos_weight: pos_weight={cfg.pos_weight:.2f} "
+                f"(pos={pos_count}, neg={neg_count}, ratio=1:{neg_count/max(pos_count,1):.1f})"
+            )
 
     train_loader = DataLoader(
         train_set,
@@ -180,6 +193,8 @@ def load_csv(path: Path, cfg: Config) -> tuple[list[dict], FieldDims]:
                     "hist_time_gaps": hist_time_gaps,
                     "hist_time_deltas": hist_time_deltas,
                     "hist_btags": hist_btags,
+                    "btag": parse_optional_int(row.get("btag", 0)),
+                    "session_gap_threshold": parse_optional_float(row.get("session_gap_threshold", 0.0)),
                     "user_static_ids": user_static_ids,
                     "item_static_values": item_static_values,
                 }

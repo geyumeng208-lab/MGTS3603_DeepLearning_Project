@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch import nn
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 from src.metrics import auc_score, gauc_score
@@ -29,6 +30,9 @@ class Trainer:
         )
 
     def fit(self, train_loader: DataLoader, valid_loader: DataLoader) -> None:
+        print(f"device={self.device} model={self.cfg.model}")
+        if self.cfg.multitask_loss_weight > 0:
+            print(f"multitask_loss_weight={self.cfg.multitask_loss_weight}")
         fp16_flag = "fp16" if self.use_fp16 else "fp32"
         print(f"device={self.device} model={self.cfg.model} precision={fp16_flag}")
         for epoch in range(1, self.cfg.epochs + 1):
@@ -58,12 +62,25 @@ class Trainer:
         total_loss = 0.0
         total_count = 0
         amp_context = torch.amp.autocast("cpu", enabled=self.use_fp16)
+
         for batch in loader:
             batch = self.move_batch(batch)
             self.optimizer.zero_grad(set_to_none=True)
+
             with amp_context:
-                logits = self.model(batch)
-                loss = self.criterion(logits, batch["label"])
+                output = self.model(batch)
+                if isinstance(output, dict):
+                    logits = output["logits"]
+                    main_loss = self.criterion(logits, batch["label"])
+
+                    btag_logits = output["btag_logits"]
+                    btag_labels = output["btag_labels"].clamp(0, self.model.btag_num_types - 1)
+                    btag_loss = F.cross_entropy(btag_logits, btag_labels, ignore_index=0)
+
+                    loss = main_loss + self.cfg.multitask_loss_weight * btag_loss
+                else:
+                    loss = self.criterion(output, batch["label"])
+
             loss.backward()
             nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5.0)
             self.optimizer.step()
@@ -71,6 +88,7 @@ class Trainer:
             batch_size = batch["label"].size(0)
             total_loss += float(loss.item()) * batch_size
             total_count += batch_size
+
         return total_loss / max(total_count, 1)
 
     @torch.no_grad()

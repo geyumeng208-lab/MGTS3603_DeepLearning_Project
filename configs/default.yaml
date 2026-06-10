@@ -32,6 +32,9 @@ time_num_bins: 12
 time_decay_hours: 24.0
 btag_num_types: 5
 session_gap_minutes: 30.0
+adaptive_session_gap: false
+multitask_loss_weight: 0.0
+auto_pos_weight: false
 static_feature_vocab_size: 64
 recent_seq_len: 100
 long_num_chunks: 8

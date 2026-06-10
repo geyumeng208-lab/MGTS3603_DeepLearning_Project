@@ -17,6 +17,7 @@ class CTRBaseModel(nn.Module):
         self.item_emb = nn.Embedding(field_dims.num_items, cfg.embedding_dim, padding_idx=0)
         self.cate_emb = nn.Embedding(field_dims.num_categories, cfg.embedding_dim, padding_idx=0)
         self.item_proj = nn.Linear(cfg.embedding_dim * 2, cfg.embedding_dim)
+        self.btag_num_types = cfg.btag_num_types
 
     def embed_target(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         item = self.item_emb(batch["item_id"])
