@@ -1,0 +1,3 @@
+dataset,samples,positive_rate,hist_len_mean,hist_len_median,hist_len_p90,hist_len_p99
+Taobao,100000,0.3759,54.97771,34.0,125.0,322.0
+DIGINETICA,100000,0.06295,2.3749,2.0,3.0,10.0

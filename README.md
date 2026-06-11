@@ -235,6 +235,31 @@ python train.py --model twin --data_path data/taobao_ads.csv --max_seq_len 1000 
 - `auc`：全局 AUC
 - `gauc`：按用户分组的 GAUC，更贴近广告排序评估
 
+## 数据可视化
+
+为了解释淘宝数据和 DIGINETICA 外部验证结果的差异，本项目提供了可复现的数据可视化脚本：
+
+```bash
+python scripts/visualize_datasets.py --taobao data/purchase_sequence_100k_static_long500.csv --diginetica data/diginetica_sequence_100k.csv --output_dir outputs/figures
+```
+
+脚本会生成标签分布、历史长度分布、行为类型分布和时间间隔分布等图，并输出数据摘要。已生成的图保存在 `figures/eda/`，可直接用于报告或 PPT。
+
+| Dataset | Samples | Positive Rate | Mean Hist Len | Median Hist Len | P90 Hist Len | P99 Hist Len |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Taobao | 100000 | 0.3759 | 54.98 | 34 | 125 | 322 |
+| DIGINETICA | 100000 | 0.0630 | 2.37 | 2 | 3 | 10 |
+
+可视化结果说明：DIGINETICA 的 session 序列非常短，平均历史长度只有 2.37，模型更容易利用当前 session 中的直接行为信号；淘宝数据历史更长、行为更稀疏且噪声更多，因此购买预测更难，也更需要长序列建模、session 切分和长期兴趣压缩。DIGINETICA 的 AUC/GAUC 明显高于淘宝数据，并不代表模型在所有场景下都更强，而是与数据集任务难度、序列长度和标签构造方式有关。
+
+主要图表：
+
+- `figures/eda/label_distribution.png`
+- `figures/eda/sequence_length_distribution.png`
+- `figures/eda/sequence_length_boxplot.png`
+- `figures/eda/behavior_type_distribution.png`
+- `figures/eda/time_gap_distribution.png`
+
 ## 参考论文与代码来源
 
 本项目主要参考以下论文和开源实现：
