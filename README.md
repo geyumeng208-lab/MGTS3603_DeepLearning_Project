@@ -260,6 +260,25 @@ python scripts/visualize_datasets.py --taobao data/purchase_sequence_100k_static
 - `figures/eda/behavior_type_distribution.png`
 - `figures/eda/time_gap_distribution.png`
 
+为了说明为什么本项目一开始关注长序列建模，我们进一步直接从淘宝原始行为日志 `data/sampled_10pct/behavior_log.csv` 按用户统计完整行为序列长度，而不是使用已经截断到 100 或 500 的训练样本 CSV：
+
+```bash
+python scripts/visualize_taobao_long_sequences.py --behavior_log data/sampled_10pct/behavior_log.csv --output_dir outputs/figures
+```
+
+统计结果如下：
+
+| Dataset | Users | Mean Behaviors | Median | P90 | P99 | Max | Users > 50 | Users > 500 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Taobao raw behavior log, 10% sample | 113494 | 635.89 | 389 | 1459 | 3735 | 25548 | 93.3% | 41.1% |
+
+这说明淘宝原始用户行为序列存在明显长尾：绝大多数用户历史长度超过 50，且相当一部分用户超过 500。因此，如果只用最近几十条行为，容易丢失长期兴趣；但如果直接把全部历史在线输入模型，又会带来显著计算成本。这正是本项目研究 SIM/TWIN 式检索、HyFormer-Hierarchical 分层压缩、Dynamic length、Top-K filtering 和 OfflineLong 离线长期兴趣预计算的动机。
+
+相关图表：
+
+- `figures/eda/taobao_long_sequence_thresholds.png`
+- `figures/eda/taobao_user_sequence_length_distribution.png`
+
 ## 参考论文与代码来源
 
 本项目主要参考以下论文和开源实现：
